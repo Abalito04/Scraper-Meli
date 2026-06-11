@@ -51,6 +51,7 @@ Archivos importantes para deploy:
 - `app.py`: app web Flask.
 - `requirements.txt`: dependencias.
 - `Procfile`: comando de arranque.
+- `.python-version`, `runtime.txt` y `nixpacks.toml`: fijan Python 3.12 para evitar errores de build con Python 3.13.
 - `scraper_meli.py`: motor de busqueda.
 
 Variables de entorno recomendadas en Railway:
@@ -78,6 +79,8 @@ En Railway:
 4. Deploy.
 5. En Mercado Libre DevCenter, agrega el Redirect URI HTTPS de Railway.
 6. Entra a tu web y toca `Login Meli`.
+
+Si Railway muestra un error como `no precompiled python found for core:python@3.13.14`, asegurate de haber subido `.python-version`, `runtime.txt` y `nixpacks.toml`. Esos archivos fuerzan Python 3.12.11.
 
 Uso por consola:
 
