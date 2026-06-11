@@ -359,6 +359,11 @@ def extract_regex_items(document: str) -> list[dict[str, Any]]:
 
 def fetch_html_results(options: SearchOptions) -> list[dict[str, Any]]:
     document = request_url(html_search_url(options)).decode("utf-8", errors="replace")
+    if "suspicious-traffic" in document or "captcha" in document.lower():
+        raise RuntimeError(
+            "Mercado Libre devolvio una pagina de verificacion en vez de resultados. "
+            "Esto suele pasar por bloqueo anti-bot del hosting o de la IP."
+        )
     rows = extract_json_ld_items(document)
     if not rows:
         rows = extract_regex_items(document)
@@ -487,18 +492,26 @@ def infer_format(output: Path, explicit_format: str | None) -> str:
 
 
 def run_search(options: SearchOptions) -> tuple[list[dict[str, Any]], str]:
+    rows, source, _warning = run_search_detailed(options)
+    return rows, source
+
+
+def run_search_detailed(options: SearchOptions) -> tuple[list[dict[str, Any]], str, str]:
     if options.mode == "html":
-        return fetch_html_results(options), "html"
+        return fetch_html_results(options), "html", ""
 
     try:
         items = fetch_search_results(options)
         rows = enrich_items(items, options.include_details, options.delay, token=options.token)
-        return rows, "api"
-    except RuntimeError:
+        return rows, "api", ""
+    except RuntimeError as api_error:
         if options.mode == "api":
             raise
-        rows = fetch_html_results(options)
-        return rows, "html"
+        try:
+            rows = fetch_html_results(options)
+        except RuntimeError as html_error:
+            raise RuntimeError(f"API fallo: {api_error}. Fallback HTML fallo: {html_error}") from html_error
+        return rows, "html", f"API fallo: {api_error}. Se uso fallback HTML."
 
 
 def main() -> int:

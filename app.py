@@ -14,7 +14,13 @@ from urllib.parse import urlencode
 
 from flask import Flask, Response, redirect, render_template_string, request, session, url_for
 
-from scraper_meli import SearchOptions, exchange_authorization_code, refresh_access_token, run_search
+from scraper_meli import (
+    SearchOptions,
+    exchange_authorization_code,
+    refresh_access_token,
+    request_json,
+    run_search_detailed,
+)
 
 
 app = Flask(__name__)
@@ -143,6 +149,7 @@ HTML = """
       <div class="actions">
         <a class="button secondary" href="{{ url_for('login') }}">Login Meli</a>
         {% if connected %}
+          <a class="button secondary" href="{{ url_for('diagnostic') }}">Probar token</a>
           <a class="button secondary" href="{{ url_for('refresh') }}">Renovar token</a>
           <a class="button secondary" href="{{ url_for('logout') }}">Salir</a>
         {% endif %}
@@ -377,11 +384,13 @@ def search() -> str:
     state["form"] = form
     try:
         options = build_options(form, state.get("access_token") or None)
-        rows, data_source = run_search(options)
+        rows, data_source, warning = run_search_detailed(options)
         state["rows"] = rows
         state["data_source"] = data_source
     except Exception as exc:
         return render(str(exc), "error")
+    if warning:
+        return render(f"{len(state['rows'])} resultados cargados. {warning}", "ok")
     return render(f"{len(state['rows'])} resultados cargados.", "ok")
 
 
@@ -442,6 +451,20 @@ def refresh() -> str:
     state["access_token"] = str(token_data.get("access_token") or "")
     state["refresh_token"] = str(token_data.get("refresh_token") or refresh_token_value)
     return render("Token renovado correctamente.", "ok")
+
+
+@app.get("/diagnostic")
+def diagnostic() -> str:
+    state = get_state()
+    token = state.get("access_token") or ""
+    if not token:
+        return render("No hay token cargado. Toca Login Meli primero.", "error")
+    try:
+        user = request_json("/users/me", token=token)
+    except Exception as exc:
+        return render(f"El token no pudo validarse con /users/me: {exc}", "error")
+    nickname = user.get("nickname") or user.get("id") or "usuario"
+    return render(f"Token valido. Cuenta conectada: {nickname}.", "ok")
 
 
 @app.get("/logout")
