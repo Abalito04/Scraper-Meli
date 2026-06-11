@@ -66,6 +66,7 @@ class MeliScraperApp(tk.Tk):
         self.client_id_var = tk.StringVar()
         self.client_secret_var = tk.StringVar()
         self.redirect_uri_var = tk.StringVar(value="http://localhost:8080/callback")
+        self.oauth_code_var = tk.StringVar()
         self.free_shipping_var = tk.BooleanVar(value=False)
         self.details_var = tk.BooleanVar(value=False)
         self.status_var = tk.StringVar(value="Listo para buscar.")
@@ -198,7 +199,7 @@ class MeliScraperApp(tk.Tk):
     def open_login_window(self) -> None:
         window = tk.Toplevel(self)
         window.title("Login Mercado Libre")
-        window.geometry("620x330")
+        window.geometry("700x430")
         window.resizable(False, False)
         window.configure(bg="#f4f6f8")
         window.transient(self)
@@ -216,6 +217,7 @@ class MeliScraperApp(tk.Tk):
             ("App ID / Client ID", self.client_id_var, ""),
             ("Client Secret", self.client_secret_var, "*"),
             ("Redirect URI", self.redirect_uri_var, ""),
+            ("Codigo OAuth", self.oauth_code_var, ""),
         ]
         for row_index, (label, variable, show) in enumerate(fields, start=1):
             ttk.Label(frame, text=label).grid(row=row_index, column=0, sticky="w", padx=(0, 10), pady=6)
@@ -225,19 +227,63 @@ class MeliScraperApp(tk.Tk):
             frame,
             text="El Redirect URI debe estar cargado exactamente igual en tu app del DevCenter.",
             style="Muted.TLabel",
-        ).grid(row=4, column=0, columnspan=2, sticky="w", pady=(8, 12))
+        ).grid(row=5, column=0, columnspan=2, sticky="w", pady=(8, 12))
 
         buttons = ttk.Frame(frame)
-        buttons.grid(row=5, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        buttons.grid(row=6, column=0, columnspan=2, sticky="ew", pady=(8, 0))
         ttk.Button(buttons, text="Autorizar en Mercado Libre", style="Primary.TButton", command=self.start_oauth_login).pack(
             side=tk.LEFT
         )
+        ttk.Button(buttons, text="Abrir login HTTPS", command=self.open_manual_login).pack(side=tk.LEFT, padx=8)
+        ttk.Button(buttons, text="Canjear codigo", command=self.exchange_manual_code).pack(side=tk.LEFT)
         ttk.Button(buttons, text="Renovar token", command=self.refresh_token).pack(side=tk.LEFT, padx=8)
         ttk.Button(buttons, text="Cerrar", command=window.destroy).pack(side=tk.RIGHT)
 
         ttk.Label(frame, textvariable=self.status_var, style="Muted.TLabel").grid(
-            row=6, column=0, columnspan=2, sticky="w", pady=(16, 0)
+            row=7, column=0, columnspan=2, sticky="w", pady=(16, 0)
         )
+
+    def open_manual_login(self) -> None:
+        client_id = self.client_id_var.get().strip()
+        redirect_uri = self.redirect_uri_var.get().strip()
+        if not client_id or not redirect_uri:
+            messagebox.showwarning("Login Mercado Libre", "Completa App ID y Redirect URI.")
+            return
+        params = {
+            "response_type": "code",
+            "client_id": client_id,
+            "redirect_uri": redirect_uri,
+        }
+        webbrowser.open(f"https://auth.mercadolibre.com.ar/authorization?{urlencode(params)}")
+        self.status_var.set("Cuando Mercado Libre muestre el codigo, pegalo en Codigo OAuth.")
+
+    def exchange_manual_code(self) -> None:
+        client_id = self.client_id_var.get().strip()
+        client_secret = self.client_secret_var.get().strip()
+        redirect_uri = self.redirect_uri_var.get().strip()
+        code = self.oauth_code_var.get().strip()
+        if not client_id or not client_secret or not redirect_uri or not code:
+            messagebox.showwarning("Login Mercado Libre", "Completa App ID, Client Secret, Redirect URI y Codigo OAuth.")
+            return
+        self.status_var.set("Canjeando codigo por token...")
+        threading.Thread(
+            target=self._exchange_manual_code_worker,
+            args=(client_id, client_secret, redirect_uri, code),
+            daemon=True,
+        ).start()
+
+    def _exchange_manual_code_worker(
+        self,
+        client_id: str,
+        client_secret: str,
+        redirect_uri: str,
+        code: str,
+    ) -> None:
+        try:
+            token_data = exchange_authorization_code(client_id, client_secret, code, redirect_uri)
+            self.auth_queue.put(("success", token_data))
+        except Exception as exc:
+            self.auth_queue.put(("error", str(exc)))
 
     def start_oauth_login(self) -> None:
         client_id = self.client_id_var.get().strip()

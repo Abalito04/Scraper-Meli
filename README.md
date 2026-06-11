@@ -42,6 +42,32 @@ http://localhost:8080/callback
 
 La app recibe el `access_token` y lo carga en el campo `Token`. El token queda en memoria mientras la ventana esta abierta; no se guarda en disco.
 
+### App de PC con callback HTTPS
+
+Si Mercado Libre no acepta `http://localhost:8080/callback`, usa Railway solo como receptor HTTPS del codigo y hace las busquedas desde la app de escritorio.
+
+En Mercado Libre DevCenter agrega tambien este Redirect URI:
+
+```text
+https://scraper-meli.up.railway.app/desktop-callback
+```
+
+Flujo:
+
+1. Abri `iniciar_interfaz.bat`.
+2. Toca `Login Meli`.
+3. Completa:
+   - `App ID / Client ID`
+   - `Client Secret`
+   - `Redirect URI`: `https://scraper-meli.up.railway.app/desktop-callback`
+4. Toca `Abrir login HTTPS`.
+5. Mercado Libre abre el navegador y despues Railway muestra un codigo.
+6. Copia ese codigo.
+7. Pegalo en `Codigo OAuth`.
+8. Toca `Canjear codigo`.
+
+Con eso el token queda cargado en la app de PC, y las busquedas se hacen desde tu computadora, no desde Railway.
+
 ## Subir a Railway
 
 Para Railway se usa la app web `app.py`, no la interfaz de escritorio `gui_meli.py`.

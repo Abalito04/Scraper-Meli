@@ -410,6 +410,50 @@ def login() -> Response:
     return redirect(f"https://auth.mercadolibre.com.ar/authorization?{urlencode(params)}")
 
 
+@app.get("/desktop-login")
+def desktop_login() -> Response:
+    client_id = os.getenv("MELI_CLIENT_ID", "")
+    if not client_id:
+        return Response("Falta configurar MELI_CLIENT_ID en Railway.", status=500)
+    params = {
+        "response_type": "code",
+        "client_id": client_id,
+        "redirect_uri": f"{public_base_url()}/desktop-callback",
+    }
+    return redirect(f"https://auth.mercadolibre.com.ar/authorization?{urlencode(params)}")
+
+
+@app.get("/desktop-callback")
+def desktop_callback() -> str:
+    if request.args.get("error"):
+        return f"<h1>Mercado Libre rechazo el login</h1><p>{request.args['error']}</p>"
+    code = request.args.get("code", "")
+    if not code:
+        return "<h1>No llego el codigo</h1><p>Volvé a intentar el login.</p>"
+    return f"""
+    <!doctype html>
+    <html lang="es">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Codigo Mercado Libre</title>
+      <style>
+        body {{ font-family: Arial, sans-serif; background: #f4f6f8; color: #182230; padding: 28px; }}
+        main {{ max-width: 760px; margin: 0 auto; background: white; border: 1px solid #d7dde5; border-radius: 8px; padding: 22px; }}
+        code {{ display: block; word-break: break-all; background: #eef4ff; padding: 14px; border-radius: 6px; color: #1849a9; }}
+      </style>
+    </head>
+    <body>
+      <main>
+        <h1>Codigo recibido</h1>
+        <p>Copiá este código y pegalo en la app de escritorio, en el campo “Código OAuth”.</p>
+        <code>{code}</code>
+      </main>
+    </body>
+    </html>
+    """
+
+
 @app.get("/callback")
 def callback() -> str:
     expected_state = session.get("oauth_state")
