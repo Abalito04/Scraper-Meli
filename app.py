@@ -202,7 +202,7 @@ HTML = """
   </section>
 
   <div class="toolbar">
-    <div class="muted">{{ rows|length }} resultados{% if source %} · fuente {{ source|upper }}{% endif %}</div>
+    <div class="muted">{{ rows|length }} resultados{% if data_source %} · fuente {{ data_source|upper }}{% endif %}</div>
     <div class="actions">
       <a class="button secondary" href="{{ url_for('export', output_format='csv') }}">Exportar CSV</a>
       <a class="button secondary" href="{{ url_for('export', output_format='json') }}">Exportar JSON</a>
@@ -258,7 +258,7 @@ def get_state() -> dict[str, Any]:
         sid,
         {
             "rows": [],
-            "source": "",
+            "data_source": "",
             "access_token": os.getenv("MELI_ACCESS_TOKEN", ""),
             "refresh_token": "",
             "form": default_form(),
@@ -339,7 +339,7 @@ def render(message: str = "", message_kind: str = "") -> str:
     return render_template_string(
         HTML,
         rows=state["rows"],
-        source=state["source"],
+        data_source=state["data_source"],
         sites=SITES,
         form=state["form"],
         connected=bool(state.get("access_token")),
@@ -377,9 +377,9 @@ def search() -> str:
     state["form"] = form
     try:
         options = build_options(form, state.get("access_token") or None)
-        rows, source = run_search(options)
+        rows, data_source = run_search(options)
         state["rows"] = rows
-        state["source"] = source
+        state["data_source"] = data_source
     except Exception as exc:
         return render(str(exc), "error")
     return render(f"{len(state['rows'])} resultados cargados.", "ok")
