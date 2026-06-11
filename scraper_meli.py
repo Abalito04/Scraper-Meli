@@ -191,7 +191,13 @@ def fetch_search_results(options: SearchOptions) -> list[dict[str, Any]]:
     while len(items) < options.limit:
         page_size = min(MAX_PAGE_SIZE, options.limit - len(items))
         params = build_search_params(options, offset, page_size)
-        payload = request_json(f"/sites/{options.site}/search", params, token=options.token)
+        try:
+            payload = request_json(f"/sites/{options.site}/search", params, token=options.token)
+        except RuntimeError as exc:
+            if options.token and "Error HTTP 403" in str(exc):
+                payload = request_json(f"/sites/{options.site}/search", params)
+            else:
+                raise
         results = payload.get("results", [])
         if not results:
             break
